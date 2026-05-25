@@ -1,0 +1,10 @@
+.git
+.gitignore
+.venv
+__pycache__
+results/*
+plots/*
+.DS_Store
+.vscode
+.idea
+docs/notes

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ns-3 build artifacts (in case anyone builds outside the container)
+build/
+*.o
+*.a
+*.so
+
+# Simulation outputs
+results/*
+!results/.gitkeep
+plots/*.png
+plots/*.pdf
+plots/*.svg
+!plots/.gitkeep
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
