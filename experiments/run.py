@@ -144,7 +144,6 @@ def build_flows(args, topo: Topology):
             receiver=receiver,
             size_bytes=args.message_size,
             start_time=args.start_time,
-            packet_payload_size=args.packet_payload_size,
         )
     raise ValueError(f"unknown traffic pattern: {args.traffic}")
 

@@ -14,7 +14,7 @@ well a fabric absorbs synchronized bursts.
 
 from typing import List
 
-from .base import Flow, bytes_to_packets
+from .base import Flow
 
 
 def incast(
@@ -22,7 +22,6 @@ def incast(
     receiver: int,
     size_bytes: int,
     start_time: float = 2.0,
-    packet_payload_size: int = 1000,
     pg: int = 3,
 ) -> List[Flow]:
     """Build flows for a synchronized incast.
@@ -32,7 +31,6 @@ def incast(
         receiver: host node ID that receives all flows
         size_bytes: per-flow size in bytes
         start_time: when the burst begins (seconds, simulated time)
-        packet_payload_size: must match PACKET_PAYLOAD_SIZE in HPCC config
         pg: priority group (RoCE default is 3)
     """
     if receiver in senders:
@@ -40,12 +38,11 @@ def incast(
     if not senders:
         raise ValueError("need at least one sender")
 
-    pkts = bytes_to_packets(size_bytes, packet_payload_size)
     return [
         Flow(
             src=s,
             dst=receiver,
-            packet_count=pkts,
+            size_bytes=size_bytes,
             start_time=start_time,
             pg=pg,
             # dport per-sender so HPCC's port-tracking doesn't collide
