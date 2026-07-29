@@ -17,6 +17,8 @@ Two designs dominate:
 
 This project builds both, runs identical workloads across them, and measures the difference.
 
+**Scope.** The packet simulator itself is not mine — it is the Alibaba HPCC fork of ns-3, which already implements RoCEv2, DCQCN, PFC and ECN. What I built is everything around it: the topology generators, the collective-communication traffic patterns, the experiment orchestration, the analysis, and the containerised build. This was a learning project; see [design notes](docs/DESIGN-NOTES.md) for the reasoning behind each choice and what I would do differently.
+
 ---
 
 ## Findings
@@ -34,9 +36,7 @@ One step of ring all-reduce, 128 GPUs, 1 MB per flow, DCQCN congestion control:
 
 The rail-optimized CDF is a vertical line: all 128 flows finished at the identical time. That is not luck. When NCCL's inter-server all-reduce phase runs on a rail-optimized fabric, every flow's path is host → rail switch → host. There is exactly **one** route, so ECMP has no decision to make and no hash collision is possible.
 
-The fat-tree's tail is the mirror image of that. Half the ring hops cross pods and must climb to the core, where 64 elephant flows are hashed onto core links. Some links draw two or three flows while others sit idle, and the unlucky flows pay for it.
-
-This is the project's central claim: **for elephant-flow workloads, the value of a topology is largely in how little path ambiguity it leaves.**
+The fat-tree's tail is the mirror image of that. Half the ring hops cross pods and must climb to the core, where 64 large flows are hashed onto core links by ECMP. Some links draw two or three flows while others sit idle, and the unlucky flows pay for it.
 
 ### 2. The fabric only pays off if the collective is rail-aware
 
@@ -68,18 +68,17 @@ PFC never fired in any configuration. DCQCN's ECN-based rate control absorbed ev
 
 ---
 
-## Validating the simulator
+## Checking the simulator
 
-Simulator output is only worth as much as your ability to check it. Every result here was cross-checked against a closed-form model derived independently of the simulator:
+Results were sanity-checked against simple arithmetic done independently of the simulator: a flow's time should be roughly its round-trip propagation plus its bytes divided by the link rate.
 
 ```
-FCT = base_rtt + (bytes_on_wire × 8) / bandwidth
-bytes_on_wire = size + ceil(size / payload) × header_bytes
+FCT ≈ base_rtt + (bytes × 8) / bandwidth
 ```
 
-The dotted line in the sweep plot is that model. It tracks the rail-optimized measurements to within ~4% across the whole range — expected, since a contention-free fabric should behave exactly like the no-contention formula.
+The dotted line in the sweep plot is that estimate. It matches the rail-optimized measurements closely, which is what you would expect from a fabric with no contention.
 
-The same discipline caught a real bug. HPCC's `third.cc` reads the flow-size field into a variable named `maxPacketCount`, so the generator initially divided byte counts by the packet payload size. The arithmetic gave it away: a 10 MB transfer finishing in 12 µs would require moving data faster than the link rate. Reading `rdma-client.cc` confirmed the field is wired to an attribute documented as *"the number of bytes to write."* Fixed in [`ad2e414`](../../commit/ad2e414).
+The same check caught a real bug early on. HPCC's flow-size field is named `maxPacketCount` in `third.cc`, so the generator initially divided byte counts by the packet size — until a "10 MB" transfer appeared to finish in 12 µs, which would be faster than the link can physically move the bytes. The field is actually wired to an attribute documented as *"the number of bytes to write."* Fixed in [`ad2e414`](../../commit/ad2e414).
 
 ---
 
