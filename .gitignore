@@ -16,10 +16,10 @@ build/
 # Simulation outputs
 results/*
 !results/.gitkeep
-plots/*.png
+
+# Figures are committed — the README embeds them. PDFs are build artifacts.
 plots/*.pdf
 plots/*.svg
-!plots/.gitkeep
 
 # Editor / OS
 .vscode/
