@@ -24,8 +24,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from topo.base import Topology
 from topo.fat_tree import fat_tree
+from topo.rail_optimized import rail_optimized
 from traffic.base import Flow, write_hpcc_flow
 from traffic.incast import incast
+from traffic.allreduce import (
+    parallel_rings,
+    ring_allreduce_step,
+    ring_chunk_bytes,
+    ring_step_count,
+    single_ring,
+)
 
 
 # CC_MODE values from HPCC's config_doc.txt
@@ -126,6 +134,15 @@ def build_topology(args) -> Topology:
             fabric_bw=args.bw,
             delay=args.delay,
         )
+    if args.topo == "rail":
+        return rail_optimized(
+            n_servers=args.n_servers,
+            gpus_per_server=args.gpus_per_server,
+            n_spine=args.n_spine,
+            host_bw=args.bw,
+            fabric_bw=args.bw,
+            delay=args.delay,
+        )
     raise ValueError(f"unknown topology: {args.topo}")
 
 
@@ -145,6 +162,30 @@ def build_flows(args, topo: Topology):
             size_bytes=args.message_size,
             start_time=args.start_time,
         )
+
+    if args.traffic == "ring-allreduce":
+        # A rail topology knows its own GPUs-per-server; for a fat-tree we
+        # impose the same server grouping so the two are comparable.
+        gps = getattr(topo, "gpus_per_server", None) or args.gpus_per_server
+        rings = (
+            parallel_rings(hosts, gps)
+            if args.ring_mode == "parallel"
+            else single_ring(hosts)
+        )
+        ring_size = len(rings[0])
+        chunk = ring_chunk_bytes(args.tensor_size, ring_size)
+        steps = ring_step_count(ring_size)
+        print(
+            f"[gen] ring-allreduce: {len(rings)} ring(s) x {ring_size} GPUs, "
+            f"chunk={chunk}B, {steps} steps in a full collective "
+            f"(simulating 1 step)"
+        )
+        return ring_allreduce_step(
+            rings=rings,
+            chunk_bytes=chunk,
+            start_time=args.start_time,
+        )
+
     raise ValueError(f"unknown traffic pattern: {args.traffic}")
 
 
@@ -163,14 +204,25 @@ def run_simulator(config_path: Path, ns3_home: str = "/opt/hpcc/simulation") -> 
 def main():
     p = argparse.ArgumentParser(description="Run an HPCC simulation experiment.")
     # Topology
-    p.add_argument("--topo", choices=["fat-tree"], required=True)
+    p.add_argument("--topo", choices=["fat-tree", "rail"], required=True)
     p.add_argument("--k", type=int, default=4, help="fat-tree k parameter")
+    p.add_argument("--n-servers", type=int, default=16, help="rail: server count")
+    p.add_argument("--gpus-per-server", type=int, default=8,
+                   help="GPUs per server; also the rail count. For fat-tree "
+                        "this only groups hosts into logical servers.")
+    p.add_argument("--n-spine", type=int, default=None,
+                   help="rail: spine switch count (default = n-servers)")
     p.add_argument("--bw", default="100Gbps", help="link bandwidth")
     p.add_argument("--delay", default="1000ns", help="per-link delay")
     # Traffic
-    p.add_argument("--traffic", choices=["incast"], required=True)
+    p.add_argument("--traffic", choices=["incast", "ring-allreduce"], required=True)
     p.add_argument("--n-senders", type=int, default=4)
     p.add_argument("--message-size", type=int, default=1_000_000, help="bytes per flow")
+    p.add_argument("--tensor-size", type=int, default=100_000_000,
+                   help="ring-allreduce: full tensor size in bytes")
+    p.add_argument("--ring-mode", choices=["parallel", "single"], default="parallel",
+                   help="parallel: one ring per GPU rank (what NCCL does). "
+                        "single: one ring over all hosts in ID order.")
     p.add_argument("--start-time", type=float, default=2.0, help="when flows start (s)")
     p.add_argument("--packet-payload-size", type=int, default=1000)
     # Simulator
