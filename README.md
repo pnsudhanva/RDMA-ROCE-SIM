@@ -119,6 +119,10 @@ python3 -m experiments.run --topo rail --n-servers 16 --gpus-per-server 8 --traf
 bash experiments/sweep.sh && python3 -m analysis.plots
 ```
 
+```bash
+python3 -m analysis.fct_stats results/*/fct.txt
+```
+
 Build takes about 4 minutes. A 128-GPU all-reduce step simulates in 12–30 seconds.
 
 ## Layout

@@ -3,7 +3,7 @@
 Glues a topology generator + traffic pattern + HPCC config together,
 writes everything to /work/results/<name>/, then runs the HPCC simulator.
 
-Run from inside the container (the host-side `make shell` shortcut):
+Run from inside the container:
     python3 -m experiments.run \\
         --topo fat-tree --k 4 \\
         --traffic incast --n-senders 4 --message-size 1000000 \\
