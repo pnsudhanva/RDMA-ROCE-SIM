@@ -21,6 +21,9 @@ results/*
 plots/*.pdf
 plots/*.svg
 
+# Private notes, not for publication
+INTERVIEW-PREP.md
+
 # Editor / OS
 .vscode/
 .idea/
