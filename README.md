@@ -138,6 +138,3 @@ results/       simulation output (gitignored)
 Dockerfile     ns-3.18 + HPCC RDMA fork, pinned
 ```
 
-## License
-
-MIT for project code. The vendored ns-3 fork retains its original GPLv2 license.
