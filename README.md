@@ -1,6 +1,6 @@
 # RDMA/RoCE GPU Cluster Network Fabric Simulator
 
-> A learning project. I wanted to understand how network design affects AI training performance, so I built a testbed that lets me change the topology with a command-line flag and measure what happens.
+> A learning project. I wanted to understand how network design affects AI training performance, so I built a testbed that lets me change the topology with a command-line flag and measure what happens. I need to thank my Claude for some great assists!
 
 ![Flow completion time CDF](plots/fct_cdf.png)
 
